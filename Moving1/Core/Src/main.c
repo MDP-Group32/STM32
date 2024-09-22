@@ -123,6 +123,7 @@ void UltraSonic(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 uint8_t RxBuffer[2];
+int detectedDistance;
 /* USER CODE END 0 */
 
 /**
@@ -217,6 +218,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -457,7 +459,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = 16-1;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 65535;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -728,18 +730,14 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 	static int tc1, tc2, first=0, echo = 0;
 	char buf[15];
-	OLED_Refresh_Gram();
 	if(htim==&htim4){
 
 		if (first == 0){
 			tc1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 			first=1;
-			OLED_ShowString(10,10,"Test_ULTRA");
 			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_FALLING);
-			OLED_ShowString(10,40,"Test_ULTRA2");
 		}
 		else if (first == 1){
-			OLED_ShowString(10,50,"Test_ULTRA3");
 			tc2 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 			__HAL_TIM_SET_COUNTER(htim, 0);
 
@@ -751,7 +749,18 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 			sprintf(buf, "Echo = %5dus", echo);
 			OLED_ShowString(10, 40, &buf[0]);
-
+			OLED_Refresh_Gram();
+			detectedDistance = echo * (0.0343/2);
+			//Can use this global variable to stop the motors
+			// For example
+			// if(detectedDistance<=30){
+			//  __HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_1, 0);
+    	    //	__HAL_TIM_SetCompare(&htim8, TIM_CHANNEL_2, 0);
+    	    //	HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+    	    //	HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+    	    //	HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+    	    //	HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+			//} the else just do what ever other movement type bah
 			sprintf(buf, "Dist = %5.1fcm", echo * 0.0343/2);
 			OLED_ShowString(10, 50, &buf[0]);
 			OLED_Refresh_Gram();
@@ -760,7 +769,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 			__HAL_TIM_SET_CAPTUREPOLARITY(htim, TIM_CHANNEL_1, TIM_INPUTCHANNELPOLARITY_RISING);
 			HAL_TIM_IC_Stop_IT(&htim4, TIM_CHANNEL_1);
 		}
-		OLED_ShowString(20,50,"Test_ULTRA4");
 	}
 }
 void UltraSonic(void){
@@ -823,9 +831,10 @@ void StartDefaultTask(void *argument)
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   uint8_t ch = 'A';
-  UltraSonic();
   for(;;)
   {
+	  UltraSonic();
+	  osDelay(1000);
 	//HAL_UART_Transmit(&huart3,(uint8_t*)&ch,1,0xFFFF);
 	//if (ch < 'Z'){
 		//ch++;
@@ -895,12 +904,12 @@ void encoder(void *argument)
         }
       }
 
-      sprintf(buffer, "Speed:%5d", diff);
-      OLED_ShowString(10, 20, buffer);
+      //sprintf(buffer, "Speed:%5d", diff);
+      //OLED_ShowString(10, 20, buffer);
 
       dir = __HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2);
-      sprintf(buffer, "Count1:%5d", cnt1);
-      OLED_ShowString(10, 30, buffer);
+      //sprintf(buffer, "Count1:%5d", cnt1);
+      //OLED_ShowString(10, 30, buffer);
 
 
       // Refresh OLED after displaying
