@@ -124,6 +124,7 @@ void UltraSonic(void);
 /* USER CODE BEGIN 0 */
 uint8_t RxBuffer[2];
 int detectedDistance;
+int motorState;
 /* USER CODE END 0 */
 
 /**
@@ -835,6 +836,14 @@ void StartDefaultTask(void *argument)
   {
 	  UltraSonic();
 	  osDelay(1000);
+	  motorState = 1; //wheels straight for 10s
+	  osDelay(10);
+	  motorState = 2; //wheels back for 10s
+	  osDelay(10);
+	  motorState = 3; //wheels 
+	  osDelay(10);
+	  motorState = 4;
+	  osDelay(10);
 	//HAL_UART_Transmit(&huart3,(uint8_t*)&ch,1,0xFFFF);
 	//if (ch < 'Z'){
 		//ch++;
@@ -857,13 +866,49 @@ void StartDefaultTask(void *argument)
 void motors(void *argument)
 {
   /* USER CODE BEGIN motors */
+  uint16_t pwmValL = 500;
+  uint16_t pwmValR = 500;
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+   switch(motorState){
+		  case 1:
+        htim1.Instance->CCR4 = 160;
+        HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET); // set direction of rotation for wheel B- forward
+        HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET); // set direction of rotation for wheel A - forward
+        HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+        break;
+		  case 2:
+        htim1.Instance->CCR4 = 160;
+        HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET); // set direction of rotation for wheel B- backward
+        HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET); // set direction of rotation for wheel A - backward
+        HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+        break;
+		  case 3:
+        htim1.Instance->CCR4 = 215;
+        HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET); // set direction of rotation for wheel B- forward
+        HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET); // set direction of rotation for wheel A - forward
+        HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+        break;
+		  case 4:
+        htim1.Instance -> CCR4 = 115;
+        HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET); // set direction of rotation for wheel B- forward
+        HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET); // set direction of rotation for wheel A - forward
+        HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+        break;
+	  }
+		__HAL_TIM_SetCompare(&htim8,TIM_CHANNEL_1,pwmValL);
+		__HAL_TIM_SetCompare(&htim8,TIM_CHANNEL_2,pwmValR);
+
   }
-  /* USER CODE END motors */
 }
+  /* USER CODE END motors */
 
 /* USER CODE BEGIN Header_encoder */
 /**
