@@ -1320,10 +1320,12 @@ void forward(int distance){
 
 
     double targetTicks = countTargetTicks(distance);
+    targetTicks *= 1.15;
 
     int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
     int encoderCountB;
     int currentCountB ;
+    rightEncoderVal = 0;
 
     PID_Init(&pid, 9.8f, 0.01f, 0.05f);
 
@@ -1354,9 +1356,11 @@ void backward(int distance){
 	HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
 	HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+	rightEncoderVal = 0;
 
 
 	double targetTicks = countTargetTicks(distance);
+	targetTicks *=1.15;
 
 	int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
 	int encoderCountB;
@@ -1427,7 +1431,7 @@ void frontRight(int distance){
               encoderCount = (currentEncoderCount - startEncoderCount);
           }
 
-          if (fabs(yawAngle)>=69) {
+          if (fabs(yawAngle)>=72) {
               // Stop the motor
             HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
             HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
@@ -1649,6 +1653,8 @@ void Uart_Function(void *argument)
 	// osDelay(5000);
 	// backLeft(0);
 	// osDelay(5000);
+	osDelay(500);
+	frontRight(0);
 	HAL_UART_Receive_IT(&huart3,sizeBuffer ,4);
 	  for(;;)
 	  {
@@ -1672,10 +1678,9 @@ void Uart_Function(void *argument)
 	           num[length] = '\0'; // Null-terminate the extracted
 
 	           digit = atoi(num);
-	           distance = (uint32_t)digit;
+	           //distance = (uint32_t)digit;
 
-	           char dist[8];
-	           osDelay(2000);
+	           //char dist[8];
 //	           sprintf(dist,"dist = %d",distance);
 //	           OLED_ShowString(10,30,num);
 //	           OLED_ShowString(10,50,dist); //Note index starts from 1
@@ -1684,40 +1689,104 @@ void Uart_Function(void *argument)
 	           char direction[3];
 	           direction[0] = instructionBuffer[dirIndex];
 	           direction[1] = instructionBuffer[turnIndex];
-	           osDelay(2000);
 //	           OLED_Clear();
 //	           OLED_ShowString(10,10,direction);
 //	           osDelay(500);
 	           if(instructionBuffer[dirIndex] =='F'&& instructionBuffer[turnIndex]== 'F'){
 //	            OLED_Clear();
 //	            OLED_ShowString(10,10,"Front Movement");
-	        	osDelay(500);
+//		            rpiBuffer[0] = 'F';
+//		            rpiBuffer[1] = 'F';
+//		            rpiBuffer[2] = 'F';
+//		            rpiBuffer[3] = 'F';
+//		            rpiBuffer[4] = 'F';
+//		            rpiBuffer[0] = instructionBuffer[dirIndex];
+//		            rpiBuffer[1] = instructionBuffer[turnIndex];
+//		            rpiBuffer[2] = instructionBuffer[hunIndex];
+//		            rpiBuffer[3] = instructionBuffer[tensIndex];
+//		            rpiBuffer[4] = instructionBuffer[onesIndex];
+		        HAL_UART_Transmit(&huart3, num, 4, 1000);
+		        osDelay(500);
 	            forward(digit);
 	            osDelay(3000);
-
 	           }
 	           else if(instructionBuffer[dirIndex] =='R'&& instructionBuffer[turnIndex]== 'R'){
-	        	osDelay(500);
+//		            rpiBuffer[0] = 'R';
+//		            rpiBuffer[1] = 'R';
+//		            rpiBuffer[2] = 'R';
+//		            rpiBuffer[3] = 'R';
+//		            rpiBuffer[4] = 'R';
+//		            rpiBuffer[0] = instructionBuffer[dirIndex];
+//		            rpiBuffer[1] = instructionBuffer[turnIndex];
+//		            rpiBuffer[2] = instructionBuffer[hunIndex];
+//		            rpiBuffer[3] = instructionBuffer[tensIndex];
+//		            rpiBuffer[4] = instructionBuffer[onesIndex];
+			        HAL_UART_Transmit(&huart3, num, 4, 1000);
+			    osDelay(500);
 	            backward(digit);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='F'&& instructionBuffer[turnIndex]== 'R'){
-	        	osDelay(500);
+//		            rpiBuffer[0] = 'F';
+//		            rpiBuffer[1] = 'R';
+//		            rpiBuffer[2] = 'F';
+//		            rpiBuffer[3] = 'R';
+//		            rpiBuffer[4] = 'F';
+		            rpiBuffer[0] = instructionBuffer[dirIndex];
+		            rpiBuffer[1] = instructionBuffer[turnIndex];
+		            rpiBuffer[2] = instructionBuffer[hunIndex];
+		            rpiBuffer[3] = instructionBuffer[tensIndex];
+		            rpiBuffer[4] = instructionBuffer[onesIndex];
+		        HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
+		        osDelay(500);
 	            frontRight(0);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='F'&& instructionBuffer[turnIndex]== 'L'){
-	        	osDelay(50);
+//		            rpiBuffer[0] = 'F';
+//		            rpiBuffer[1] = 'L';
+//		            rpiBuffer[2] = 'F';
+//		            rpiBuffer[3] = 'L';
+//		            rpiBuffer[4] = 'F';
+		            rpiBuffer[0] = instructionBuffer[dirIndex];
+		            rpiBuffer[1] = instructionBuffer[turnIndex];
+		            rpiBuffer[2] = instructionBuffer[hunIndex];
+		            rpiBuffer[3] = instructionBuffer[tensIndex];
+		            rpiBuffer[4] = instructionBuffer[onesIndex];
+		        HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
+		        osDelay(500);
 	            frontLeft(0);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='B'&& instructionBuffer[turnIndex]== 'R'){
-	        	osDelay(500);
+//		            rpiBuffer[0] = 'B';
+//		            rpiBuffer[1] = 'R';
+//		            rpiBuffer[2] = 'B';
+//		            rpiBuffer[3] = 'R';
+//		            rpiBuffer[4] = 'B';
+		            rpiBuffer[0] = instructionBuffer[dirIndex];
+		            rpiBuffer[1] = instructionBuffer[turnIndex];
+		            rpiBuffer[2] = instructionBuffer[hunIndex];
+		            rpiBuffer[3] = instructionBuffer[tensIndex];
+		            rpiBuffer[4] = instructionBuffer[onesIndex];
+		        HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
+		        osDelay(500);
 	            backRight(0);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='B'&& instructionBuffer[turnIndex]== 'L'){
-	        	osDelay(500);
+//		            rpiBuffer[0] = 'B';
+//		            rpiBuffer[1] = 'L';
+//		            rpiBuffer[2] = 'B';
+//		            rpiBuffer[3] = 'L';
+//		            rpiBuffer[4] = 'B';
+		            rpiBuffer[0] = instructionBuffer[dirIndex];
+		            rpiBuffer[1] = instructionBuffer[turnIndex];
+		            rpiBuffer[2] = instructionBuffer[hunIndex];
+		            rpiBuffer[3] = instructionBuffer[tensIndex];
+		            rpiBuffer[4] = instructionBuffer[onesIndex];
+	        	HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
+		        osDelay(500);
 	            backLeft(0);
 	            osDelay(3000);
 	           }
