@@ -63,6 +63,10 @@ void Error_Handler(void);
 #define OLED_SCL_GPIO_Port GPIOE
 #define OLED_SDA_Pin GPIO_PIN_6
 #define OLED_SDA_GPIO_Port GPIOE
+#define IRRIGHT_Pin GPIO_PIN_1
+#define IRRIGHT_GPIO_Port GPIOC
+#define IRLEFT_Pin GPIO_PIN_2
+#define IRLEFT_GPIO_Port GPIOC
 #define AIN2_Pin GPIO_PIN_2
 #define AIN2_GPIO_Port GPIOA
 #define AIN1_Pin GPIO_PIN_3
