@@ -129,9 +129,9 @@ uint32_t LPFSum;    // sum of the last Size samples
 //float yaw_kalman;
 
 
-#define WHEEL_DIAMETER_CM 6.5
+#define WHEEL_DIAMETER_CM 6
 #define PI 3.14159
-#define TICKS_PER_REV 360
+#define TICKS_PER_REV 390
 #define MOTOR_PWM_MAX 6000  // Example maximum PWM value
 #define MOTOR_PWM_MIN 0
 #define MIN_PWM_THRESHOLD 100
@@ -167,6 +167,9 @@ uint32_t LPFSum;    // sum of the last Size samples
 #define MAG_CTRL3	     0x32
 #define MAG_X_OUT 		 0x11
 #define EXT_SLV_SENS_DATA_00 0x3B
+
+//Change of environment
+int indoor = 1;
 
 //Command Transmission related User Defined Function Prototype and Variable
 int startFlag = 0;
@@ -980,7 +983,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 	else{
 		startFlag = 1;
-		HAL_UART_Transmit(&huart3, instructionBuffer, bufferSize, 1000);
+		//HAL_UART_Transmit(&huart3, instructionBuffer, bufferSize, 1000);
 	}
 //    if(rxBuffer[0]!='0000'){
 //    	if(instructionIndex<999){
@@ -1096,15 +1099,34 @@ int32_t VoltToDist(int32_t nc){   // returns center distance in cm
 }
 
 int32_t ConvertLDist(int32_t nc){
-	uint32_t length; //distance in cm
-	length = 28473.9/ (nc - 135.71);
-	return length;
+
+	if(indoor){
+		uint32_t length; //distance in cm
+		length = 28473.9/ (nc - 135.71);
+		return length;
+	}
+	else{
+		uint32_t length;
+		length = 32536.2/(nc - 96.962);
+		return length;
+	}
+
+
 }
 
 int32_t ConvertRDist(int32_t nc){
-    uint32_t length;   // Distance in cm
-    length = 29299/(nc - 137.02);
-    return length;
+
+	if(indoor){
+	    uint32_t length;   // Distance in cm
+	    length = 29299/(nc - 137.02);
+	    return length;
+	}
+	else{
+		uint32_t length;
+		length = 29772.4/(nc-123.64);
+	    return length;
+	}
+
 }
 
 
@@ -1115,6 +1137,7 @@ void IRSensor() {
         uint32_t adc_left = HAL_ADC_GetValue(&hadc1);  // Read left sensor value
         //uint32_t filtered_left = LPF_Calc(adc_left);   // Apply low-pass filter
         IRLeftDist = ConvertLDist(adc_left); // Convert to distance (cm)
+
     }
 
     // Read right sensor data from ADC (example for right sensor ADC2)
@@ -1309,79 +1332,158 @@ void PID_Init(PID_TypeDef *pid, float Kp, float Ki, float Kd){
 }
 
 void forward(int distance){
-	yawAngle = 0.0;
-	htim1.Instance->CCR4 = 155;
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
-    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	if(indoor){
+		yawAngle = 0.0;
+		htim1.Instance->CCR4 = 155;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+	    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+	    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
 
 
-    double targetTicks = countTargetTicks(distance);
-    targetTicks *= 1.15;
+	    double targetTicks = countTargetTicks(distance);
+	    targetTicks *= 1.15;
 
-    int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
-    int encoderCountB;
-    int currentCountB ;
-    rightEncoderVal = 0;
+	    int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
+	    int encoderCountB;
+	    int currentCountB ;
+	    rightEncoderVal = 0;
 
-    PID_Init(&pid, 9.8f, 0.01f, 0.05f);
+	    PID_Init(&pid, 9.8f, 0.01f, 0.05f);
 
-    while (1) {
+	    while (1) {
 
-    	currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
-    	encoderCountB = abs(currentCountB - startCountB);
-    	__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 2500);
-    	uint16_t pwmValue = PID_Compute(&pid,0,yawAngle,0);
-        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
+	    	currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
+	    	encoderCountB = abs(currentCountB - startCountB);
+	    	__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 2500);
+	    	uint16_t pwmValue = PID_Compute(&pid,0,yawAngle,0);
+	        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
 
 
-        if (rightEncoderVal >= targetTicks) {
-            stopMove();
-            break;
-        }
+	        if (rightEncoderVal >= targetTicks) {
+	            stopMove();
+	            break;
+	        }
 
-        osDelay(10);
-    }
+	        osDelay(10);
+	    }
+	}
+	else{
+		yawAngle = 0.0;
+		htim1.Instance->CCR4 = 155;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	    HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_SET);
+	    HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	    HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_SET);
+	    HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+
+
+	    double targetTicks = countTargetTicks(distance);
+	    targetTicks *= 1.15;
+
+	    int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
+	    int encoderCountB;
+	    int currentCountB ;
+	    rightEncoderVal = 0;
+
+	    PID_Init(&pid, 14.0f, 0.01f, 1.0f);
+
+	    while (1) {
+
+	    	currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
+	    	encoderCountB = abs(currentCountB - startCountB);
+	    	__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 2500);
+	    	uint16_t pwmValue = PID_Compute(&pid,0,yawAngle,0);
+	        __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
+
+
+	        if (rightEncoderVal >= targetTicks) {
+	            stopMove();
+	            break;
+	        }
+
+	        osDelay(10);
+	    }
+	}
 }
 
 void backward(int distance){
-	yawAngle = 0.0;
-	htim1.Instance->CCR4 = 150;
-	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
-	HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
-	rightEncoderVal = 0;
+	if(indoor){
+		yawAngle = 0.0;
+		htim1.Instance->CCR4 = 150;
+		HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+		HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+		HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+		rightEncoderVal = 0;
 
 
-	double targetTicks = countTargetTicks(distance);
-	targetTicks *=1.15;
+		double targetTicks = countTargetTicks(distance);
+		targetTicks *=1.15;
 
-	int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
-	int encoderCountB;
-	int currentCountB ;
+		int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
+		int encoderCountB;
+		int currentCountB ;
 
-	PID_Init(&pid, 9.0f, 0.01f, 0.05f);
+		PID_Init(&pid, 9.0f, 0.01f, 0.05f);
 
-	while (1) {
-		currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
-		encoderCountB = abs(currentCountB - startCountB);
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,2500);
-		uint16_t pwmValue = PID_Compute(&pid,0,yawAngle,1);
-		__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
+		while (1) {
+			currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
+			encoderCountB = abs(currentCountB - startCountB);
+			__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,2500);
+			uint16_t pwmValue = PID_Compute(&pid,0,yawAngle,1);
+			__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
 
 
-		if (abs(rightEncoderVal) >= targetTicks) {
-			stopMove();
-			break;
+			if (abs(rightEncoderVal) >= targetTicks) {
+				stopMove();
+				break;
+			}
+
+			osDelay(10);
 		}
+	}
+	else{
+		yawAngle = 0.0;
+		htim1.Instance->CCR4 = 150;
+		HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+		HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+		HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_SET);
+		HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_SET);
+		rightEncoderVal = 0;
 
-		osDelay(10);
+
+		double targetTicks = countTargetTicks(distance);
+		targetTicks *=1.15;
+
+		int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
+		int encoderCountB;
+		int currentCountB ;
+
+		PID_Init(&pid, 14.0f, 0.01f, 1.0f);
+
+		while (1) {
+			currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
+			encoderCountB = abs(currentCountB - startCountB);
+			__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1,2500);
+			uint16_t pwmValue = PID_Compute(&pid,0,yawAngle,1);
+			__HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
+
+
+			if (abs(rightEncoderVal) >= targetTicks) {
+				stopMove();
+				break;
+			}
+
+			osDelay(10);
+		}
 	}
 }
 
@@ -1398,204 +1500,406 @@ void stopMove(){
 }
 
 void frontRight(int distance){
-    yawAngle = 0.0; //reset angle
-    uint32_t pwmValL = 4200;
-    uint32_t pwmValR = 500;
-    uint32_t encoderCount = 0;
-    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
-    uint32_t currentEncoderCount = 0;
-    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+	if(indoor){
+	    yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 4200;
+	    uint32_t pwmValR = 500;
+	    uint32_t encoderCount = 0;
+	    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    uint32_t currentEncoderCount = 0;
+	    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
 
-        //(uint32_t)countTargetTicks(distance);
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-    htim1.Instance->CCR4 = 260;
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	        //(uint32_t)countTargetTicks(distance);
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 260;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-    for(;;){
-      //Move Forward
-       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_SET);
-       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_RESET);
-       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
-       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_RESET);
-       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_SET);
-       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
-      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
-      osDelay(10);
-        // Check if the robot has reached the target distance
+	    for(;;){
+	      //Move Forward
+	       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_SET);
+	       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_RESET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_RESET);
+	       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_SET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	      osDelay(10);
+	        // Check if the robot has reached the target distance
 
-          // Calculate total encoder ticks since the motor started moving
-          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
-              encoderCount = (startEncoderCount - currentEncoderCount);
-          } else {
-              encoderCount = (currentEncoderCount - startEncoderCount);
-          }
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
 
-          if (fabs(yawAngle)>=72) {
-              // Stop the motor
-            HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-            __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
-            HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
-            HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
-            __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
-            htim1.Instance -> CCR4 = 155;
-            yawAngle = 0.0;
+	          if (fabs(yawAngle)>=84) {
+	              // Stop the motor
+	            HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	            HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	            __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	            HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	            HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	            __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	            htim1.Instance -> CCR4 = 155;
+	            yawAngle = 0.0;
 
-              return;
-          }
-    }
+	              return;
+	          }
+	    }
+	}
+	else{
+	    yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 4200;
+	    uint32_t pwmValR = 500;
+	    uint32_t encoderCount = 0;
+	    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    uint32_t currentEncoderCount = 0;
+	    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+
+	        //(uint32_t)countTargetTicks(distance);
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 260;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	    for(;;){
+	      //Move Forward
+	       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_SET);
+	       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_RESET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_RESET);
+	       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_SET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	      osDelay(10);
+	        // Check if the robot has reached the target distance
+
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
+
+	          if (fabs(yawAngle)>=84) {
+	              // Stop the motor
+	            HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	            HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	            __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	            HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	            HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	            __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	            htim1.Instance -> CCR4 = 155;
+	            yawAngle = 0.0;
+
+	              return;
+	          }
+	    }
+	}
 
 
 }
 
 
 void backRight(int distance){
-	yawAngle = 0.0; //reset angle
-    uint32_t pwmValL = 4300;
-    uint32_t pwmValR = 500;
-  	uint32_t encoderCount = 0;
-  	uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
-  	uint32_t currentEncoderCount = 0;
-  	uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+	if(indoor){
+		yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 4300;
+	    uint32_t pwmValR = 500;
+	  	uint32_t encoderCount = 0;
+	  	uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	  	uint32_t currentEncoderCount = 0;
+	  	uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
 
-  			//(uint32_t)countTargetTicks(distance);
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-    htim1.Instance->CCR4 = 260;
-  	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-  	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	  			//(uint32_t)countTargetTicks(distance);
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 260;
+	  	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
-  	for(;;){
-  	  //Move Backwards
-  		 HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_RESET);
-  		 HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_SET);
-  		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
-  		 HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_SET);
-  		 HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_RESET);
-  		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
-  		osDelay(10);
-  		currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	  	for(;;){
+	  	  //Move Backwards
+	  		 HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_RESET);
+	  		 HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_SET);
+	  		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	  		 HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_SET);
+	  		 HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_RESET);
+	  		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	  		osDelay(10);
+	  		currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
 
-        // Check if the robot has reached the target distance
+	        // Check if the robot has reached the target distance
 
-          // Calculate total encoder ticks since the motor started moving
-          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
-              encoderCount = (startEncoderCount - currentEncoderCount);
-          } else {
-              encoderCount = (currentEncoderCount - startEncoderCount);
-          }
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
 
-          if (fabs(yawAngle)>= 69) {
-              // Stop the motor
-              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
-              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
-              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
-              htim1.Instance -> CCR4 = 155;
-              yawAngle = 0.0;
-              return;
-          }
-  	}
+	          if (fabs(yawAngle)>= 69) {
+	              // Stop the motor
+	              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	              htim1.Instance -> CCR4 = 155;
+	              yawAngle = 0.0;
+	              return;
+	          }
+	  	}
+	}
+	else{
+		yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 4300;
+	    uint32_t pwmValR = 500;
+	  	uint32_t encoderCount = 0;
+	  	uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	  	uint32_t currentEncoderCount = 0;
+	  	uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+
+	  			//(uint32_t)countTargetTicks(distance);
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 260;
+	  	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	  	HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+	  	for(;;){
+	  	  //Move Backwards
+	  		 HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_RESET);
+	  		 HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_SET);
+	  		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	  		 HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_SET);
+	  		 HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_RESET);
+	  		 __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	  		osDelay(10);
+	  		currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+
+	        // Check if the robot has reached the target distance
+
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
+
+	          if (fabs(yawAngle)>= 79) {
+	              // Stop the motor
+	              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	              htim1.Instance -> CCR4 = 155;
+	              yawAngle = 0.0;
+	              return;
+	          }
+	  	}
+	}
 }
 void frontLeft(int distance){
-	yawAngle = 0.0; //reset angle
-    uint32_t pwmValL = 800;
-    uint32_t pwmValR = 4000;
-    uint32_t encoderCount = 0;
-    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
-    uint32_t currentEncoderCount = 0;
-    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+	if(indoor){
+		yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 800;
+	    uint32_t pwmValR = 4000;
+	    uint32_t encoderCount = 0;
+	    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    uint32_t currentEncoderCount = 0;
+	    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
 
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-    htim1.Instance->CCR4 = 120;
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 120;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
 
-    for(;;){
-      //Move Forward
-       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_SET);
-       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_RESET);
-       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
-       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_RESET);
-       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_SET);
-       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
-      osDelay(10);
-      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    for(;;){
+	      //Move Forward
+	       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_SET);
+	       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_RESET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_RESET);
+	       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_SET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	      osDelay(10);
+	      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
 
-        // Check if the robot has reached the target distance
+	        // Check if the robot has reached the target distance
 
-          // Calculate total encoder ticks since the motor started moving
-          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
-              encoderCount = (startEncoderCount - currentEncoderCount);
-          } else {
-              encoderCount = (currentEncoderCount - startEncoderCount);
-          }
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
 
-          if (fabs(yawAngle)>= 86) {
-              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
-              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
-              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
-              htim1.Instance -> CCR4 = 155;
-              yawAngle = 0.0;
-              return;
-          }
-    }
+	          if (fabs(yawAngle)>= 86) {
+	              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	              htim1.Instance -> CCR4 = 155;
+	              yawAngle = 0.0;
+	              return;
+	          }
+	    }
+	}
+	else{
+		yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 850;
+	    uint32_t pwmValR = 4000;
+	    uint32_t encoderCount = 0;
+	    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    uint32_t currentEncoderCount = 0;
+	    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 120;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+
+	    for(;;){
+	      //Move Forward
+	       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_SET);
+	       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_RESET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_RESET);
+	       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_SET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	      osDelay(10);
+	      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+
+	        // Check if the robot has reached the target distance
+
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
+
+	          if (fabs(yawAngle)>= 84) {
+	              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	              htim1.Instance -> CCR4 = 155;
+	              yawAngle = 0.0;
+	              return;
+	          }
+	    }
+	}
 
 }
 
 void backLeft(int distance){
-	yawAngle = 0.0; //reset angle
-    uint32_t pwmValL = 950;
-    uint32_t pwmValR = 3600;
-    uint32_t encoderCount = 0;
-    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
-    uint32_t currentEncoderCount = 0;
-    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+	if(indoor){
+		yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 975;
+	    uint32_t pwmValR = 3150;
+	    uint32_t encoderCount = 0;
+	    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    uint32_t currentEncoderCount = 0;
+	    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
 
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-    htim1.Instance->CCR4 = 88;
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 88;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
 
 
-    for(;;){
-      //Move Backwards
-       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_RESET);
-       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_SET);
-       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
-       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_SET);
-       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_RESET);
-       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
-      osDelay(10);
-      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    for(;;){
+	      //Move Backwards
+	       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_RESET);
+	       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_SET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_SET);
+	       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_RESET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	      osDelay(10);
+	      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
 
-        // Check if the robot has reached the target distance
+	        // Check if the robot has reached the target distance
 
-          // Calculate total encoder ticks since the motor started moving
-          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
-              encoderCount = (startEncoderCount - currentEncoderCount);
-          } else {
-              encoderCount = (currentEncoderCount - startEncoderCount);
-          }
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
 
-          if (fabs(yawAngle)>=70) {
-              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
-              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
-              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
-              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
-              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
-              htim1.Instance -> CCR4 = 155;
-              yawAngle = 0.0;
-              return;
-          }
-    }
+	          if (fabs(yawAngle)>=78) {
+	              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	              htim1.Instance -> CCR4 = 155;
+	              yawAngle = 0.0;
+	              return;
+	          }
+	    }
+	}
+	else{
+		yawAngle = 0.0; //reset angle
+	    uint32_t pwmValL = 975;
+	    uint32_t pwmValR = 3150;
+	    uint32_t encoderCount = 0;
+	    uint32_t startEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+	    uint32_t currentEncoderCount = 0;
+	    uint32_t targetTicks = (uint32_t)countTargetTicks(distance);
+
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+	    htim1.Instance->CCR4 = 88;
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+	    HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+
+	    for(;;){
+	      //Move Backwards
+	       HAL_GPIO_WritePin(GPIOA,AIN1_Pin,GPIO_PIN_RESET);
+	       HAL_GPIO_WritePin(GPIOA,AIN2_Pin,GPIO_PIN_SET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, pwmValL);
+	       HAL_GPIO_WritePin(GPIOA,BIN2_Pin,GPIO_PIN_SET);
+	       HAL_GPIO_WritePin(GPIOA,BIN1_Pin,GPIO_PIN_RESET);
+	       __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValR);
+	      osDelay(10);
+	      currentEncoderCount = __HAL_TIM_GET_COUNTER(&htim2);
+
+	        // Check if the robot has reached the target distance
+
+	          // Calculate total encoder ticks since the motor started moving
+	          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) {
+	              encoderCount = (startEncoderCount - currentEncoderCount);
+	          } else {
+	              encoderCount = (currentEncoderCount - startEncoderCount);
+	          }
+
+	          if (fabs(yawAngle)>=78) {
+	              HAL_GPIO_WritePin(GPIOA, AIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, AIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_1, 0);  // Stop PWM
+	              HAL_GPIO_WritePin(GPIOA, BIN2_Pin, GPIO_PIN_RESET);
+	              HAL_GPIO_WritePin(GPIOA, BIN1_Pin, GPIO_PIN_RESET);
+	              __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, 0);  // Stop PWM
+	              htim1.Instance -> CCR4 = 155;
+	              yawAngle = 0.0;
+	              return;
+	          }
+	    }
+	}
 }
 
 void resetAllGlobals() {
@@ -1653,8 +1957,6 @@ void Uart_Function(void *argument)
 	// osDelay(5000);
 	// backLeft(0);
 	// osDelay(5000);
-	osDelay(500);
-	frontRight(0);
 	HAL_UART_Receive_IT(&huart3,sizeBuffer ,4);
 	  for(;;)
 	  {
@@ -1693,99 +1995,31 @@ void Uart_Function(void *argument)
 //	           OLED_ShowString(10,10,direction);
 //	           osDelay(500);
 	           if(instructionBuffer[dirIndex] =='F'&& instructionBuffer[turnIndex]== 'F'){
-//	            OLED_Clear();
-//	            OLED_ShowString(10,10,"Front Movement");
-//		            rpiBuffer[0] = 'F';
-//		            rpiBuffer[1] = 'F';
-//		            rpiBuffer[2] = 'F';
-//		            rpiBuffer[3] = 'F';
-//		            rpiBuffer[4] = 'F';
-//		            rpiBuffer[0] = instructionBuffer[dirIndex];
-//		            rpiBuffer[1] = instructionBuffer[turnIndex];
-//		            rpiBuffer[2] = instructionBuffer[hunIndex];
-//		            rpiBuffer[3] = instructionBuffer[tensIndex];
-//		            rpiBuffer[4] = instructionBuffer[onesIndex];
-		        HAL_UART_Transmit(&huart3, num, 4, 1000);
 		        osDelay(500);
 	            forward(digit);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='R'&& instructionBuffer[turnIndex]== 'R'){
-//		            rpiBuffer[0] = 'R';
-//		            rpiBuffer[1] = 'R';
-//		            rpiBuffer[2] = 'R';
-//		            rpiBuffer[3] = 'R';
-//		            rpiBuffer[4] = 'R';
-//		            rpiBuffer[0] = instructionBuffer[dirIndex];
-//		            rpiBuffer[1] = instructionBuffer[turnIndex];
-//		            rpiBuffer[2] = instructionBuffer[hunIndex];
-//		            rpiBuffer[3] = instructionBuffer[tensIndex];
-//		            rpiBuffer[4] = instructionBuffer[onesIndex];
-			        HAL_UART_Transmit(&huart3, num, 4, 1000);
 			    osDelay(500);
 	            backward(digit);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='F'&& instructionBuffer[turnIndex]== 'R'){
-//		            rpiBuffer[0] = 'F';
-//		            rpiBuffer[1] = 'R';
-//		            rpiBuffer[2] = 'F';
-//		            rpiBuffer[3] = 'R';
-//		            rpiBuffer[4] = 'F';
-		            rpiBuffer[0] = instructionBuffer[dirIndex];
-		            rpiBuffer[1] = instructionBuffer[turnIndex];
-		            rpiBuffer[2] = instructionBuffer[hunIndex];
-		            rpiBuffer[3] = instructionBuffer[tensIndex];
-		            rpiBuffer[4] = instructionBuffer[onesIndex];
-		        HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
 		        osDelay(500);
 	            frontRight(0);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='F'&& instructionBuffer[turnIndex]== 'L'){
-//		            rpiBuffer[0] = 'F';
-//		            rpiBuffer[1] = 'L';
-//		            rpiBuffer[2] = 'F';
-//		            rpiBuffer[3] = 'L';
-//		            rpiBuffer[4] = 'F';
-		            rpiBuffer[0] = instructionBuffer[dirIndex];
-		            rpiBuffer[1] = instructionBuffer[turnIndex];
-		            rpiBuffer[2] = instructionBuffer[hunIndex];
-		            rpiBuffer[3] = instructionBuffer[tensIndex];
-		            rpiBuffer[4] = instructionBuffer[onesIndex];
-		        HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
 		        osDelay(500);
 	            frontLeft(0);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='B'&& instructionBuffer[turnIndex]== 'R'){
-//		            rpiBuffer[0] = 'B';
-//		            rpiBuffer[1] = 'R';
-//		            rpiBuffer[2] = 'B';
-//		            rpiBuffer[3] = 'R';
-//		            rpiBuffer[4] = 'B';
-		            rpiBuffer[0] = instructionBuffer[dirIndex];
-		            rpiBuffer[1] = instructionBuffer[turnIndex];
-		            rpiBuffer[2] = instructionBuffer[hunIndex];
-		            rpiBuffer[3] = instructionBuffer[tensIndex];
-		            rpiBuffer[4] = instructionBuffer[onesIndex];
-		        HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
 		        osDelay(500);
 	            backRight(0);
 	            osDelay(3000);
 	           }
 	           else if(instructionBuffer[dirIndex] =='B'&& instructionBuffer[turnIndex]== 'L'){
-//		            rpiBuffer[0] = 'B';
-//		            rpiBuffer[1] = 'L';
-//		            rpiBuffer[2] = 'B';
-//		            rpiBuffer[3] = 'L';
-//		            rpiBuffer[4] = 'B';
-		            rpiBuffer[0] = instructionBuffer[dirIndex];
-		            rpiBuffer[1] = instructionBuffer[turnIndex];
-		            rpiBuffer[2] = instructionBuffer[hunIndex];
-		            rpiBuffer[3] = instructionBuffer[tensIndex];
-		            rpiBuffer[4] = instructionBuffer[onesIndex];
-	        	HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
 		        osDelay(500);
 	            backLeft(0);
 	            osDelay(3000);
@@ -1806,8 +2040,15 @@ void Uart_Function(void *argument)
 	        currentIndex +=5;
 	       }
 	       if(currentIndex>=iBufferSize){
-	        OLED_Clear();
-	        OLED_ShowString(10,10,"exit forloop");
+	            HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
+	            HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
+	            rpiBuffer[0] = '#';
+	            rpiBuffer[1] = '#';
+	            rpiBuffer[2] = '#';
+	            rpiBuffer[3] = '#';
+	            rpiBuffer[4] = '#';
+	            HAL_UART_Transmit(&huart3, rpiBuffer, 5, 1000);
+	            osDelay(1000);
 	        resetAllGlobals();
 	        break;
 	       }
