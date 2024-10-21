@@ -169,7 +169,7 @@ uint32_t LPFSum;    // sum of the last Size samples
 #define EXT_SLV_SENS_DATA_00 0x3B
 
 //Change of environment
-int indoor = 0;
+int indoor = 1;
 
 //Command Transmission related User Defined Function Prototype and Variable
 int startFlag = 0;
@@ -1376,7 +1376,7 @@ void forward(int distance){
 	    int currentCountB ;
 	    rightEncoderVal = 0;
 
-	    PID_Init(&pid, 9.5f, 0.01f, 0.05f);
+	    PID_Init(&pid, 12.0f, 0.01f, 0.05f);
 
 	    while (1) {
 
@@ -1477,16 +1477,24 @@ void backward(int distance){
 	    	correctionTicks = countTargetTicks(6);
 	    	targetTicks = targetTicks - correctionTicks;
 	    }
-	    else if (distance>65 && distance<=85){
+	    else if (distance>65 && distance<=75){
 	    	correctionTicks = countTargetTicks(3);
 	    	targetTicks = targetTicks - correctionTicks;
+	    }
+	    else if (distance>65 && distance<=75){
+	    	correctionTicks = countTargetTicks(10);
+	    	targetTicks = targetTicks + correctionTicks;
+	    }
+	    else if (distance>85 && distance<=110){
+	    	correctionTicks = countTargetTicks(15);
+	    	targetTicks = targetTicks + correctionTicks;
 	    }
 
 		int startCountB = __HAL_TIM_GET_COUNTER(&htim3);
 		int encoderCountB;
 		int currentCountB ;
 
-		PID_Init(&pid, 9.0f, 0.01f, 0.05f);
+		PID_Init(&pid, 9.7f, 0.01f, 0.05f);
 
 		while (1) {
 			currentCountB = __HAL_TIM_GET_COUNTER(&htim3);
@@ -1764,13 +1772,13 @@ void frontLeft(int distance){
 		   __HAL_TIM_SET_COMPARE(&htim8, TIM_CHANNEL_2, pwmValue);
 
 
-		   if (10.5f < (fabs(targetYaw) - fabs(yawAngle)) <= 20.0f) {
+		   if (9.5f < (fabs(targetYaw) - fabs(yawAngle)) <= 20.0f) {
 		    __HAL_TIM_SET_COMPARE(&htim8,TIM_CHANNEL_1,500);
 		    __HAL_TIM_SET_COMPARE(&htim8,TIM_CHANNEL_1,500);
 
 		   }
 
-		   if (fabs(targetYaw - fabs(yawAngle)) <= 10.5f){
+		   if (fabs(targetYaw - fabs(yawAngle)) <= 9.5f){
 			   htim1.Instance->CCR4 = 155;
 			   stopMove();
 			   break;
@@ -1961,71 +1969,29 @@ void StartDefaultTask(void *argument)
 /* USER CODE END Header_Uart_Function */
 void Uart_Function(void *argument)
 {
-  /* USER CODE BEGIN Uart_Function */
-  /* Infinite loop */
-//	osDelay(500);
-//	forward(20);
-//	osDelay(1000);
-//	frontLeft(0);
-//	osDelay(1000000);
-	// frontRight(0);
-	// resetAllGlobals();
-	// osDelay(5000);
-	// backRight(0);
-	// osDelay(5000);
-	// frontLeft(0);
-	// osDelay(5000);
-	// backLeft(0);
 //	osDelay(2500);
-//	backward(50);
-//	osDelay(2500);
-//	forward(10);
-//	osDelay(2500);
-//	forward(20);
-//	osDelay(2500);
-//	forward(30);
-//	osDelay(2500);
-//	forward(40);
-//	osDelay(5000);
-//	osDelay(2500);
-//	forward(100);
-//	osDelay(2500);
-//	forward(20);
-//	osDelay(2500);
-//	forward(40);
-//	osDelay(2500);
-//	backRight(0);
-//	osDelay(5000);
-//	backLeft(0);
-//	osDelay(5000);
-//	backRight(0);
-//	osDelay(5000);
-//	frontLeft(0);
-//	osDelay(5000);
-//	frontRight(0);
-//	osDelay(1000000);
-//	osDelay(1000);
-	// osDelay(5000);
 //	forward(50);
-//	osDelay(1000);
-//	backward(50);
-//	osDelay(1000);
-	osDelay(500);
-	forward(50);
-	osDelay(3000);
-	backward(100);
-	osDelay(3000);
-	backward(80);
-	osDelay(3000);
-	backward(60);
-	osDelay(3000);
-	backward(40);
-	osDelay(3000);
-	backward(30);
-	osDelay(3000);
-	backward(20);
-	osDelay(3000);
-	backward(10);
+//	osDelay(2500);
+//	frontLeft(0);
+//	osDelay(3000);
+//	frontRight(0);
+//	osDelay(3000);
+//	backLeft(0);
+//	osDelay(3000);
+//	backRight(0);
+//	osDelay(100000);
+//	osDelay(2500);
+//	frontRight(0);
+//	osDelay(2500);
+//	backLeft;
+//	osDelay(2500);
+//	backRight;
+//	osDelay(2500);
+//	backward(40);
+//	osDelay(2500);
+//	backward(10);
+//	forward(0);
+
 
 	HAL_UART_Receive_IT(&huart3,sizeBuffer ,4);
 
